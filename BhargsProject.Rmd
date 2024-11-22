@@ -1,0 +1,125 @@
+---
+title: "BhargsProject"
+author: "Thejasvi Dhanireddy"
+date: "2024-10-31"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r include=FALSE}
+library(tidyverse)
+library(dplyr)
+#install.packages("fmsb")
+library(fmsb)
+#install.packages("combinat")
+library(combinat)
+#data = read_csv("C:\\Users\\Main\\Downloads\\Dillard VNOTES Project - Data.csv")
+data1 = read_csv("C:\\Users\\Main\\Downloads\\Dillard VNOTES Project - Data (1).csv")
+
+data1 = rename(data1,
+  ProcedureS= "Procedure Simplified",)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+# Define the number of months per block
+months_per_block <- data.frame(
+  Block = c("Block 1", "Block 2", "Block 3", "Block 4", "Block 5"),
+  months = c(6, 6, 4, 3, 5)
+)
+```
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+# Calculate rate of TVH per month in each block
+rate_TVH_per_month <- data1 %>%
+  filter(ProcedureS == "TVH") %>%                    # Select only TVH procedures
+  group_by(Block) %>%
+  summarize(TVH_count = n()) %>%                    # Count TVH in each block
+  left_join(months_per_block, by = "Block") %>%     # Join with months per block
+  mutate(rate_per_month = TVH_count / months)       # Calculate rate per month
+
+# View the result
+print(rate_TVH_per_month)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+as.data.frame(rate_TVH_per_month)
+
+rate_TVH_per_month$Block <- as.factor(rate_TVH_per_month$Block)
+
+kruskal.test(rate_per_month ~ Block, data = rate_TVH_per_month)
+
+```
+
+
+```{r}
+data1 <- data1 %>%
+  filter(Provider != c("CHENG, GEORGINA"))
+
+# Calculate the proportions by block
+result <- data1 %>%
+  filter(!is.na(Block)) %>% 
+  group_by(Block) %>%
+  summarize(
+    total_procedures = sum(ProcedureS != "cHYST"),
+    tvh_count = sum(ProcedureS == "TVH"),
+    vnotes_count = sum(ProcedureS == "vNOTES"),
+    tvh_vnotes_count = sum(ProcedureS %in% c("TVH", "vNOTES")),
+    tvh_proportion = tvh_count / total_procedures,
+    vnotes_proportion = vnotes_count / total_procedures,
+    tvh_vnotes_proportion = tvh_vnotes_count / total_procedures
+  )
+
+# View the result
+print(result)
+
+```
+
+```{r}
+# Filter data and create a new column indicating TVH + vNotes
+data1 <- data1 %>%
+  filter(!is.na(Block), !is.na(Procedure)) %>%
+  mutate(tvh_vnotes = ifelse(Procedure %in% c("TVH", "vNotes"), "TVH_vNotes", "Other"))
+
+# Create a contingency table of counts of TVH+vNotes vs. Other for each block
+contingency_table <- data1 %>%
+  group_by(Block, tvh_vnotes) %>%
+  summarize(count = n(), .groups = 'drop') %>%
+  pivot_wider(names_from = tvh_vnotes, values_from = count, values_fill = 0) %>%
+  column_to_rownames("Block")
+
+contingency_table
+```
+
+
+```{r}
+# Run the chi-squared test
+chisq.test(contingency_table)
+
+```
+
+
+```{r}
+# Run Fisher's Exact Test on the contingency table
+fisher.test(contingency_table)
+
+```
+
+
+```{r}
+x <- contingency_table$TVH_vNotes
+n <- contingency_table$TVH_vNotes + contingency_table$Other
+
+pairwise.fisher.test(x, n, p.adjust.method = "bonferroni")
+
+```
+
+
+
